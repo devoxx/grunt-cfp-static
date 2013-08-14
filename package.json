@@ -1,0 +1,48 @@
+{
+  "name": "grunt-cfp-static",
+  "description": "Creates the HTML for the Devoxx website, based on Handlebars templates and the Devoxx CFP REST API.",
+  "version": "0.0.1",
+  "homepage": "https://github.com/devoxx/grunt-cfp-static",
+  "author": {
+    "name": "Jo Voordeckers",
+    "email": "jo.voordeckers@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/devoxx/grunt-cfp-static.git"
+  },
+  "bugs": {
+    "url": "https://github.com/devoxx/grunt-cfp-static/issues"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/devoxx/grunt-cfp-static/blob/master/LICENSE-MIT"
+    }
+  ],
+  "main": "Gruntfile.js",
+  "engines": {
+    "node": ">= 0.8.0"
+  },
+  "scripts": {
+    "test": "grunt test"
+  },
+  "devDependencies": {
+    "grunt-contrib-jshint": "~0.1.1",
+    "grunt-contrib-clean": "~0.4.0",
+    "grunt-contrib-nodeunit": "~0.1.2",
+    "grunt": "~0.4.1"
+  },
+  "peerDependencies": {
+    "grunt": "~0.4.1"
+  },
+  "keywords": [
+    "gruntplugin", "template", "html", "handlebars", "devoxx"
+  ],
+  "dependencies": {
+    "handlebars": "~1.0.12",
+    "client-http": "0.0.5",
+    "q": "~0.9.6",
+    "moment": "~2.1.0"
+  }
+}
