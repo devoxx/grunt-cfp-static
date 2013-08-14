@@ -69,22 +69,22 @@ module.exports.renderEvent = function(grunt, files, output, event) {
         return defer.promise;
     }
 
-    function renderData(eventDetails, schedules, tracks, speakers, presentations) {
+    function toUrl(name) {
+        var cleaned = name.toLowerCase() // change everything to lowercase
+            .replace(/^\s+|\s+$/g, "") // trim leading and trailing spaces     
+            .replace(/[_|\s]+/g, "-") // change all spaces and underscores to a hyphen
+            .replace(/[^a-z0-9-]+/g, "") // remove all non-alphanumeric characters except the hyphen
+            .replace(/[-]+/g, "-") // replace multiple instances of the hyphen with a single instance
+            .replace(/^-+|-+$/g, ""); // trim leading and trailing hyphens
+        return event.key + "-" + cleaned + ".html";
+    }
 
-        var defer = q.defer();
+    /**
+     * Enhance JSON returned by the CFP
+     */
+    function prepareData(eventDetails, schedules, tracks, speakers, presentations) {
 
-        moment(eventDetails.from)
-
-        var srcFile = grunt.file.read(files + '/index.hbr.html');
-
-        var partialAllSpeakers = grunt.file.read(files + '/allSpeakersBody.hbr.html');
-
-        //var partialspeaker = grunt.file.read(files + '/speakerBody.hbr.html');
-
-        var template = Handlebars.compile(srcFile);
-
-        Handlebars.registerPartial("allSpeakersBody", partialAllSpeakers);
-
+        console.log("Preparing JSON data for rendering.");
 
         function trackSpeaker(speakerId, trackIdVar, day) {
 
@@ -104,7 +104,7 @@ module.exports.renderEvent = function(grunt, files, output, event) {
             speaker.days = _.uniq(speaker.days);
         }
 
-        function trackId(trackname) {
+        function getTrackId(trackname) {
             var track = _.find(tracks, function(track){ return track.name == trackname; });
             return track ? track.id : "missingTrackId";
         }
@@ -120,7 +120,7 @@ module.exports.renderEvent = function(grunt, files, output, event) {
         }
 
         _.each(speakers, function(speaker){
-            speaker.page = toUrl(speaker.firstName + " " + speaker.lastName);            
+            speaker.page = toUrl(speaker.firstName + " " + speaker.lastName);          
         });
 
         _.each(tracks, function(track){
@@ -131,63 +131,165 @@ module.exports.renderEvent = function(grunt, files, output, event) {
 
             pres.page = toUrl(pres.title);
 
-            var trackIdVar = "track-" + trackId(pres.track);
+            var trackId = getTrackId(pres.track);
+
+            if (trackId) {
+                pres.trackIcon = event.trackMapping[new String(trackId)];
+            }
+
+            var trackIdVar = "track-" + trackId;
 
             var schedule = _.find(schedules, function(schedule){ return schedule.presentationId == pres.id; });
 
-            var day = "day-";
+            var dayIdVar = "day-";
 
             if (schedule) {
-                day += moment(schedule.fromTime).day();
+                dayIdVar += moment(schedule.fromTime).day();
             } else {
-                day += "missingSchedule";
+                dayIdVar += "missingSchedule";
             }            
 
             // for isotope
-            pres.dayIdVar = day;
+            pres.dayIdVar = dayIdVar;
             pres.trackIdVar = trackIdVar;
             // for rendering
             pres.schedule = schedule;
 
-            _.each(pres.speakers, function(speaker) {
-                trackSpeaker(speaker.speakerId, trackIdVar, day);
+            _.each(pres.speakers, function(speaker) { // Add tracks and days to speaker
+                trackSpeaker(speaker.speakerId, trackIdVar, dayIdVar);
             });
 
         });
 
+        _.each(presentations, function(pres){ // Augment presentations with full speakers
+
+            var speakerNames = [];
+
+            var newSpeakers = [];
+
+            _.each(pres.speakers, function(presSpeaker) {
+
+                var fullSpeaker = _.find(speakers, function(speaker){ return speaker.id == presSpeaker.speakerId});
+
+                if (!fullSpeaker) {
+                    console.error("Missing full speaker", presSpeaker);
+                    return;
+                }
+
+                newSpeakers.push(fullSpeaker);
+
+                speakerNames.push(fullSpeaker.firstName + " " + fullSpeaker.lastName);
+
+            });
+
+            pres.speakers = newSpeakers; // Strip the missing ones
+
+            pres.speakerNames = _(speakerNames).forEach().join(", ");
+
+        });
+
+    }
+
+    function renderData(eventDetails, schedules, tracks, speakers, presentations) {
+
+        var defer = q.defer();
+
+        var srcFile = grunt.file.read(files + '/index.hbr.html');
+
+        var partialSpeakers = grunt.file.read(files + '/speakersBody.hbr.html');
+        var partialPresentation = grunt.file.read(files + '/presentationBody.hbr.html');
+        var partialSchedule = grunt.file.read(files + '/scheduleBody.hbr.html');
+
+        var template = Handlebars.compile(srcFile);
+
+        Handlebars.registerPartial("speakersBody", partialSpeakers);
+        Handlebars.registerPartial("presentationBody", partialPresentation);
+        Handlebars.registerPartial("scheduleBody", partialSchedule);
+
+        var fullSchedule = prepareData(eventDetails, schedules, tracks, speakers, presentations);
+
         try {
 
-            var destFile = output + '/' + event.key + '-speakers.html';
+            console.log("Rendering HTML...");
+
+            var allSpeakers = function () {
+
+                // /dv13-speakers.html
+
+                var destFile = output + '/' + toUrl("speakers");
    
-            // /dv13-speakers.html
+                var data = { 
+                    isSpeakers: true,                
+                    eventDetails: eventDetails,
+                    tracks: tracks,
+                    speakers: speakers
+                };
 
-            var data = { 
-                isAllSpeakers: true,                
-                eventDetails: eventDetails,
-                tracks: tracks,
-                speakers: speakers
-            };
+                var html = template(data);
 
-            var html = template(data);
+                grunt.file.write(destFile, html);
 
-            grunt.file.write(destFile, html);
+            }
 
+            var eachPresentation = function () {
+
+                // /dv13-filthy-rich-clients.html
+
+                _.each(presentations, function(pres){
+
+                    var destFile = output + '/' + pres.page;
+       
+                    var data = { 
+                        isPresentation: true,                
+                        presentation: pres
+                    };
+
+                    var html = template(data);
+
+                    grunt.file.write(destFile, html);
+
+                });
+
+            } 
+
+            var allPresentations = function() {
+
+                // /dv13-schedule.html
+
+                var destFile = output + '/' + toUrl("schedule");
+   
+                var data = { 
+                    isSchedule: true,                
+                    eventDetails: eventDetails,
+                    tracks: tracks,
+                    schedules: fullSchedule
+                };
+
+                var html = template(data);
+
+                grunt.file.write(destFile, html);
+
+            }          
+
+            allSpeakers();
+            eachPresentation();
+            allPresentations();
+              
+
+            console.log("Done.");
+                
         } catch(e) {        
             defer.reject(e);
         }
 
         defer.resolve();
 
-    // /dv13-romain-guy.html
 
-    // /dv13-schedule.html
-
-    // /dv13-filthy-rich-clients.html
 
         return defer.promise;
     }
 
-    console.log("Rendering event ID/Key:", event.id, event.key);
+    console.log("Rendering event ID/Key:", event.id, event.key, "fetching JSON data...");
 
     q.all([getEvent(), getSchedules(), getTracks(), getSpeakers(), getPresentations()])
         .spread(renderData)
