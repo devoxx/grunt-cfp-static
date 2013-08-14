@@ -1,6 +1,6 @@
 {
   "name": "grunt-cfp-static",
-  "description": "Creates the HTML for the Devoxx website, based on Handlebars templates and the Devoxx CFP REST API.",
+  "description": "Generates static HTML pages (speakers, schedule) for the Devoxx website, based on Handlebars templates and the Devoxx CFP REST API.",
   "version": "0.0.1",
   "homepage": "https://github.com/devoxx/grunt-cfp-static",
   "author": {

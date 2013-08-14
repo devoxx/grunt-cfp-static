@@ -1,6 +1,6 @@
 /*
  * grunt-cfp-static
- * https://github.com/jayv/grunt-cfp-static
+ * https://github.com/devoxx/grunt-cfp-static
  *
  * Copyright (c) 2013 Jo Voordeckers
  * Licensed under the MIT license.
