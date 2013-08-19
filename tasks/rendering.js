@@ -29,7 +29,7 @@ module.exports.renderEvent = function(grunt, files, output, event) {
       schedulesUrl = event.url + '/events/' + event.id + '/schedule',
       allTracksUrl = event.url + '/events/' + event.id + '/tracks',
       allSpeakersUrl = event.url + '/events/' + event.id + '/speakers',
-      allPresentationsUrl = event.url + '/events/' + event.id + '/speakers'
+      allPresentationsUrl = event.url + '/events/' + event.id + '/presentations'
       ;
 
     var _defer = q.defer();
@@ -205,6 +205,12 @@ module.exports.renderEvent = function(grunt, files, output, event) {
         Handlebars.registerPartial("speakersBody", partialSpeakers);
         Handlebars.registerPartial("presentationBody", partialPresentation);
         Handlebars.registerPartial("scheduleBody", partialSchedule);
+        Handlebars.registerHelper("nlbr", function(text) {
+            text = Handlebars.Utils.escapeExpression(text);
+            text = text.toString();
+            text = text.replace(/(\r\n|\n|\r)/gm, '<br>');
+            return new Handlebars.SafeString(text);
+        });
 
         var fullSchedule = prepareData(eventDetails, schedules, tracks, speakers, presentations);
 
@@ -235,7 +241,11 @@ module.exports.renderEvent = function(grunt, files, output, event) {
 
                 // /dv13-filthy-rich-clients.html
 
+                var counter = 0;
+
                 _.each(presentations, function(pres){
+
+                    counter++; if (counter > 3) return false;
 
                     var destFile = output + '/' + pres.page;
        
