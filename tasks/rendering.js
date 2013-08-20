@@ -166,8 +166,6 @@ module.exports.renderEvent = function(grunt, files, output, event) {
 
         });
 
-        presentations = _.filter(presentations, function(pres){ return pres.schedule; });
-
         _.each(presentations, function(pres){ // Augment presentations with full speakers
 
             var newSpeakers = [];
@@ -220,13 +218,13 @@ module.exports.renderEvent = function(grunt, files, output, event) {
 
             });
 
-            newPrezos = _.sortBy(newPrezos, function(prezo){ return prezo.schedule.fromTime; });
+            newPrezos = _.sortBy(newPrezos, function(prezo){ return prezo.schedule ? prezo.schedule.fromTime : ""; });
 
             speaker.talks = newPrezos;
 
         });
 
-        presentations = _.sortBy(presentations, function(pres){ return pres.schedule.fromTime; });
+        presentations = _.sortBy(presentations, function(pres){ return pres.schedule ? pres.schedule.fromTime : ""; });
 
         var fullSchedule = _.groupBy(presentations, "dayIdVar");
 
