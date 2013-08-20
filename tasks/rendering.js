@@ -127,9 +127,7 @@ module.exports.renderEvent = function(grunt, files, output, event) {
             track.icon = event.trackMapping[new String(track.id)];
         });
 
-        _.each(presentations, function(pres){
-
-            pres.page = toUrl(pres.title);
+        _.each(presentations, function(pres){            
 
             var trackId = getTrackId(pres.track);
 
@@ -147,6 +145,7 @@ module.exports.renderEvent = function(grunt, files, output, event) {
                 dayIdVar += moment(schedule.fromTime).day();
             } else {
                 dayIdVar += "missingSchedule";
+                console.log("Missing schedule for pres", pres.id);
             }            
 
             // for isotope
@@ -161,9 +160,11 @@ module.exports.renderEvent = function(grunt, files, output, event) {
 
         });
 
+        presentations = _.filter(presentations, function(pres){ return pres.schedule; });
+
         _.each(presentations, function(pres){ // Augment presentations with full speakers
 
-            var speakerNames = [];
+            delete pres.speaker;
 
             var newSpeakers = [];
 
@@ -178,15 +179,56 @@ module.exports.renderEvent = function(grunt, files, output, event) {
 
                 newSpeakers.push(fullSpeaker);
 
-                speakerNames.push(fullSpeaker.firstName + " " + fullSpeaker.lastName);
-
             });
 
             pres.speakers = newSpeakers; // Strip the missing ones
 
-            pres.speakerNames = _(speakerNames).forEach().join(", ");
+            var speaker = pres.speakers[0];
+
+            if (!speaker) {
+                    console.error("Missing speaker presId", pres.id);
+                    return;
+                }
+
+            pres.page = toUrl(speaker.page) + "?presId=" + pres.id;
 
         });
+
+        _.each(speakers, function(speaker){
+
+            var newPrezos = [];
+
+            _.each(speaker.talks, function(speakerPres){
+
+                var fullPres = _.find(presentations, function(pres){ return pres.id == speakerPres.presentationId; })
+
+                if (!fullPres) {
+                    console.error("Missing full presentation", speakerPres);
+                    return;
+                }
+
+                newPrezos.push(fullPres);
+
+            });
+
+            newPrezos = _.sortBy(newPrezos, function(prezo){ return prezo.schedule.fromTime; });
+
+            speaker.talks = newPrezos;
+
+        });
+
+        presentations = _.sortBy(presentations, function(pres){ return pres.schedule.fromTime; });
+
+        var fullSchedule = _.groupBy(presentations, "dayIdVar");
+
+        return {
+            eventDetails: eventDetails,
+            schedules: schedules, 
+            tracks: tracks, 
+            speakers: speakers, 
+            presentations: presentations,
+            fullSchedule: fullSchedule            
+        }
 
     }
 
@@ -197,13 +239,15 @@ module.exports.renderEvent = function(grunt, files, output, event) {
         var srcFile = grunt.file.read(files + '/index.hbr.html');
 
         var partialSpeakers = grunt.file.read(files + '/speakersBody.hbr.html');
-        var partialPresentation = grunt.file.read(files + '/presentationBody.hbr.html');
+        var partialSpeaker = grunt.file.read(files + '/speakerBody.hbr.html');
+        var partialSpeakerRow = grunt.file.read(files + '/speakerRow.hbr.html');
         var partialSchedule = grunt.file.read(files + '/scheduleBody.hbr.html');
 
         var template = Handlebars.compile(srcFile);
 
         Handlebars.registerPartial("speakersBody", partialSpeakers);
-        Handlebars.registerPartial("presentationBody", partialPresentation);
+        Handlebars.registerPartial("speakerBody", partialSpeaker);
+        Handlebars.registerPartial("speakerRow", partialSpeakerRow);
         Handlebars.registerPartial("scheduleBody", partialSchedule);
         Handlebars.registerHelper("nlbr", function(text) {
             text = Handlebars.Utils.escapeExpression(text);
@@ -211,8 +255,34 @@ module.exports.renderEvent = function(grunt, files, output, event) {
             text = text.replace(/(\r\n|\n|\r)/gm, '<br>');
             return new Handlebars.SafeString(text);
         });
+        // Workaround ../ not working in regular partials
+        Handlebars.registerHelper('include', function(templatename, options){  
+            var partial = Handlebars.partials[templatename];
+            if (typeof partial === "string") {
+                partial = Handlebars.compile(partial);
+                Handlebars.partials[templatename] = partial;
+            }
+            var context = _.extend({}, this, options.hash);
+            return new Handlebars.SafeString(partial(context));
+        });
 
-        var fullSchedule = prepareData(eventDetails, schedules, tracks, speakers, presentations);
+        Handlebars.Utils.log = function(log) {
+            console.log("HBR:", log);
+        }
+        Handlebars.registerHelper("log", Handlebars.Utils.log)
+
+        Handlebars.registerHelper("schedule", function(schedule) {
+            
+            var fromTime = moment(schedule.fromTime);
+            var toTime = moment(schedule.toTime);
+            return new Handlebars.SafeString(fromTime.format("ddd") + " " + fromTime.format("HH:mm") + " - " + toTime.format("HH:mm"));
+        });
+
+        Handlebars.registerHelper('first', function(context, options) {
+          return options.fn(context[0]);
+        });
+
+        var prepared = prepareData(eventDetails, schedules, tracks, speakers, presentations);
 
         try {
 
@@ -226,9 +296,9 @@ module.exports.renderEvent = function(grunt, files, output, event) {
    
                 var data = { 
                     isSpeakers: true,                
-                    eventDetails: eventDetails,
-                    tracks: tracks,
-                    speakers: speakers
+                    eventDetails: prepared.eventDetails,
+                    tracks: prepared.tracks,
+                    speakers: prepared.speakers
                 };
 
                 var html = template(data);
@@ -237,21 +307,17 @@ module.exports.renderEvent = function(grunt, files, output, event) {
 
             }
 
-            var eachPresentation = function () {
+            var eachSpeaker = function () {
 
-                // /dv13-filthy-rich-clients.html
+                // /dv13-romain-guy.html?presId=123 < link to a pres within a speaker page
 
-                var counter = 0;
+                _.each(prepared.speakers, function(speaker){
 
-                _.each(presentations, function(pres){
-
-                    counter++; if (counter > 3) return false;
-
-                    var destFile = output + '/' + pres.page;
+                    var destFile = output + '/' + speaker.page;
        
                     var data = { 
-                        isPresentation: true,                
-                        presentation: pres
+                        isSpeaker: true,                
+                        speaker: speaker
                     };
 
                     var html = template(data);
@@ -270,9 +336,9 @@ module.exports.renderEvent = function(grunt, files, output, event) {
    
                 var data = { 
                     isSchedule: true,                
-                    eventDetails: eventDetails,
-                    tracks: tracks,
-                    schedules: fullSchedule
+                    eventDetails: prepared.eventDetails,
+                    tracks: prepared.tracks,
+                    fullSchedule: prepared.fullSchedule
                 };
 
                 var html = template(data);
@@ -282,7 +348,7 @@ module.exports.renderEvent = function(grunt, files, output, event) {
             }          
 
             allSpeakers();
-            eachPresentation();
+            eachSpeaker();
             allPresentations();
               
 
