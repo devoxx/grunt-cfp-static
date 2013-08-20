@@ -108,9 +108,9 @@ module.exports.renderEvent = function(grunt, files, output, event) {
             speaker.days = _.uniq(speaker.days);
         }
 
-        function getTrackId(trackname) {
+        function getTrack(trackname) {
             var track = _.find(tracks, function(track){ return track.name == trackname; });
-            return track ? track.id : "missingTrackId";
+            return track ? track : "missingTrack";
         }
 
         function toUrl(name) {
@@ -133,13 +133,14 @@ module.exports.renderEvent = function(grunt, files, output, event) {
 
         _.each(presentations, function(pres){            
 
-            var trackId = getTrackId(pres.track);
+            var track = getTrack(pres.track);
 
-            if (trackId) {
-                pres.trackIcon = event.trackMapping[new String(trackId)];
+            if (track) {
+                pres.trackIcon = event.trackMapping[new String(track.id)];
+                pres.trackDescription = track.description;
             }
 
-            var trackIdVar = "track-" + trackId;
+            var trackIdVar = "track-" + track.id;
 
             var schedule = _.find(schedules, function(schedule){ return schedule.presentationId == pres.id; });
 
@@ -155,8 +156,9 @@ module.exports.renderEvent = function(grunt, files, output, event) {
             // for isotope
             pres.dayIdVar = dayIdVar;
             pres.trackIdVar = trackIdVar;
+
             // for rendering
-            pres.schedule = schedule;
+            pres.schedule = schedule;        
 
             _.each(pres.speakers, function(speaker) { // Add tracks and days to speaker
                 trackSpeaker(speaker.speakerId, trackIdVar, dayIdVar);
