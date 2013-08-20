@@ -313,6 +313,7 @@ module.exports.renderEvent = function(grunt, files, output, event) {
    
                 var data = { 
                     isSpeakers: true,                
+                    hasSchedules: prepared.schedules && prepared.schedules.length > 0,
                     eventDetails: prepared.eventDetails,
                     tracks: prepared.tracks,
                     speakers: prepared.speakers
