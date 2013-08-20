@@ -18,55 +18,59 @@ module.exports.renderEvent = function(grunt, files, output, event) {
       q = require('q'),
       moment = require('moment'),
 
-      // Skip remote calls
-      eventJSON = require('./event.json'),
-      tracksJSON = require('./tracks.json'),
-      presentationsJSON = require('./presentations.json'),
-      schedulesJSON = require('./schedule.json') ,
-      speakersJSON = require('./speakers.json'), 
+      // Placeholders for optional MOCK JSON data
+      eventJSON,
+      tracksJSON,
+      presentationsJSON,
+      schedulesJSON,
+      speakersJSON,
+      
+      // Uncomment to skip remote REST calls using DV12 data
+      // eventJSON = require('./event.json'),
+      // tracksJSON = require('./tracks.json'),
+      // presentationsJSON = require('./presentations.json'),
+      // schedulesJSON = require('./schedule.json') ,
+      // speakersJSON = require('./speakers.json'), 
 
       eventUrl = event.url + '/events/' + event.id,
       schedulesUrl = event.url + '/events/' + event.id + '/schedule',
-      allTracksUrl = event.url + '/events/' + event.id + '/tracks',
-      allSpeakersUrl = event.url + '/events/' + event.id + '/speakers',
-      allPresentationsUrl = event.url + '/events/' + event.id + '/presentations'
+      tracksUrl = event.url + '/events/' + event.id + '/tracks',
+      speakersUrl = event.url + '/events/' + event.id + '/speakers',
+      presentationsUrl = event.url + '/events/' + event.id + '/presentations'
       ;
 
     var _defer = q.defer();
 
-    function getEvent(){
+    function getMockdataOrCallREST(mockData, url) {
         var defer = q.defer();
-        // http.get(eventUrl, defer.resolve);
-        defer.resolve(eventJSON);
+        if (typeof(mockData) !== 'undefined') {
+            defer.resolve(mockData);
+        } else {
+            http.get(url, function(data) {
+                defer.resolve(JSON.parse(data));
+            });    
+        }
         return defer.promise;
+    }
+
+    function getEvent(){        
+        return getMockdataOrCallREST(eventJSON, eventUrl);
     }
 
     function getSchedules(){
-        var defer = q.defer();
-        // http.get(schedulesUrl, defer.resolve);
-        defer.resolve(schedulesJSON);
-        return defer.promise;
+        return getMockdataOrCallREST(schedulesJSON, schedulesUrl);   
     }
 
     function getTracks(){
-        var defer = q.defer();
-        // http.get(allTracksUrl, defer.resolve);
-        defer.resolve(tracksJSON);
-        return defer.promise;
+        return getMockdataOrCallREST(tracksJSON, tracksUrl);
     }
 
     function getSpeakers(){
-        var defer = q.defer();
-        // http.get(allSpeakersUrl, defer.resolve);
-        defer.resolve(speakersJSON);
-        return defer.promise;
+        return getMockdataOrCallREST(speakersJSON, speakersUrl);
     }
 
     function getPresentations(){
-        var defer = q.defer();
-        // http.get(allPresentationsUrl, defer.resolve);
-        defer.resolve(presentationsJSON);
-        return defer.promise;
+        return getMockdataOrCallREST(presentationsJSON, presentationsUrl);
     }
 
     function toUrl(name) {
@@ -91,7 +95,7 @@ module.exports.renderEvent = function(grunt, files, output, event) {
             var speaker = _.find(speakers, function(speaker) { return speaker.id == speakerId} );
 
             if (!speaker) {
-                console.error("Missing speaker in speaker REST API", speakerId);
+                console.error("Missing speaker for presentation speaker mapping", speakerId);
                 return;
             }
 
@@ -119,7 +123,7 @@ module.exports.renderEvent = function(grunt, files, output, event) {
             return event.key + "-" + cleaned + ".html";
         }
 
-        _.each(speakers, function(speaker){
+        _.each(speakers, function(speaker){            
             speaker.page = toUrl(speaker.firstName + " " + speaker.lastName);          
         });
 
@@ -164,8 +168,6 @@ module.exports.renderEvent = function(grunt, files, output, event) {
 
         _.each(presentations, function(pres){ // Augment presentations with full speakers
 
-            delete pres.speaker;
-
             var newSpeakers = [];
 
             _.each(pres.speakers, function(presSpeaker) {
@@ -173,7 +175,7 @@ module.exports.renderEvent = function(grunt, files, output, event) {
                 var fullSpeaker = _.find(speakers, function(speaker){ return speaker.id == presSpeaker.speakerId});
 
                 if (!fullSpeaker) {
-                    console.error("Missing full speaker", presSpeaker);
+                    console.error("Missing full speaker for pres ", pres.id, "speaker", presSpeaker);
                     return;
                 }
 
@@ -186,15 +188,20 @@ module.exports.renderEvent = function(grunt, files, output, event) {
             var speaker = pres.speakers[0];
 
             if (!speaker) {
-                    console.error("Missing speaker presId", pres.id);
-                    return;
-                }
+                console.error("Missing speaker presId", pres.id, "speaker", pres.speaker);
+                return;
+            }
 
+            delete pres.speaker;
             pres.page = toUrl(speaker.page) + "?presId=" + pres.id;
 
         });
 
         _.each(speakers, function(speaker){
+
+            if (speaker.imageURI === "http://www.devoxx.be/img/thumbnail.gif") {
+                speaker.imageURI = "/images_dummy/no_avatar.gif";
+            }
 
             var newPrezos = [];
 
@@ -203,7 +210,7 @@ module.exports.renderEvent = function(grunt, files, output, event) {
                 var fullPres = _.find(presentations, function(pres){ return pres.id == speakerPres.presentationId; })
 
                 if (!fullPres) {
-                    console.error("Missing full presentation", speakerPres);
+                    console.error("Missing full presentation for speakermapping", speakerPres);
                     return;
                 }
 
@@ -233,6 +240,8 @@ module.exports.renderEvent = function(grunt, files, output, event) {
     }
 
     function renderData(eventDetails, schedules, tracks, speakers, presentations) {
+
+        console.log("Prepare template engine...");
 
         var defer = q.defer();
 
