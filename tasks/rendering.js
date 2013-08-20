@@ -293,6 +293,14 @@ module.exports.renderEvent = function(grunt, files, output, event) {
           return options.fn(context[0]);
         });
 
+        Handlebars.registerHelper('ifequal', function (val1, val2, options) {
+            if (val1 === val2) {
+                return options.fn(this);
+            } else {
+                return options.inverse(this);
+            }
+        });
+
         var prepared = prepareData(eventDetails, schedules, tracks, speakers, presentations);
 
         try {
