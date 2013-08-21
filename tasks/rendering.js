@@ -90,6 +90,8 @@ module.exports.renderEvent = function(grunt, files, output, event) {
 
         console.log("Preparing JSON data for rendering.");
 
+        schedules = _.filter(schedules, function(schedule){ return !!schedule.presentationId; });
+
         function trackSpeaker(speakerId, trackIdVar, day) {
 
             var speaker = _.find(speakers, function(speaker) { return speaker.id == speakerId} );
