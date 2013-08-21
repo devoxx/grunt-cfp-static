@@ -264,6 +264,9 @@ module.exports.renderEvent = function(grunt, files, output, event) {
             text = Handlebars.Utils.escapeExpression(text);
             text = text.toString();
             text = text.replace(/(\r\n|\n|\r)/gm, '<br>');
+            text = text.replace(/&lt;/gm, '<');
+            text = text.replace(/&gt;/gm, '>');
+            text = text.replace(/&quot;/gm, '"');
             return new Handlebars.SafeString(text);
         });
         // Workaround ../ not working in regular partials
