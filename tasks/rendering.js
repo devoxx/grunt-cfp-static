@@ -340,7 +340,8 @@ module.exports.renderEvent = function(grunt, files, output, event) {
        
                     var data = { 
                         isSpeaker: true,                
-                        speaker: speaker
+                        speaker: speaker,
+                        event: event
                     };
 
                     var html = template(data);
