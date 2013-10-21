@@ -32,11 +32,12 @@ module.exports.renderEvent = function(grunt, files, output, event) {
       // schedulesJSON = require('./schedule.json') ,
       // speakersJSON = require('./speakers.json'), 
 
-      eventUrl = event.url + '/events/' + event.id,
-      schedulesUrl = event.url + '/events/' + event.id + '/schedule',
-      tracksUrl = event.url + '/events/' + event.id + '/tracks',
-      speakersUrl = event.url + '/events/' + event.id + '/speakers',
-      presentationsUrl = event.url + '/events/' + event.id + '/presentations'
+      basePath = event.url + '/rest/v1/events/' + event.id,
+      eventUrl = basePath ,
+      schedulesUrl = basePath + '/schedule',
+      tracksUrl = basePath + '/tracks',
+      speakersUrl = basePath + '/speakers',
+      presentationsUrl = basePath + '/presentations'
       ;
 
     var _defer = q.defer();
@@ -312,6 +313,8 @@ module.exports.renderEvent = function(grunt, files, output, event) {
 
             var allSpeakers = function () {
 
+                console.log("Rendering all speakers");
+
                 // /dv13-speakers.html
 
                 var destFile = output + '/' + toUrl("speakers");
@@ -321,20 +324,25 @@ module.exports.renderEvent = function(grunt, files, output, event) {
                     hasSchedules: prepared.schedules && prepared.schedules.length > 0,
                     eventDetails: prepared.eventDetails,
                     tracks: prepared.tracks,
-                    speakers: prepared.speakers
+                    speakers: prepared.speakers,
+                    event: event
                 };
 
                 var html = template(data);
 
+                console.log("Rendered all speakers to ", destFile);
+
                 grunt.file.write(destFile, html);
 
-            }
+            }            
 
             var eachSpeaker = function () {
 
                 // /dv13-romain-guy.html?presId=123 < link to a pres within a speaker page
 
                 _.each(prepared.speakers, function(speaker){
+
+                    console.log("Rendering speaker: ", speaker.id, speaker.firstName, speaker.lastName);
 
                     var destFile = output + '/' + speaker.page;
        
@@ -346,6 +354,8 @@ module.exports.renderEvent = function(grunt, files, output, event) {
 
                     var html = template(data);
 
+                    console.log("Rendered speaker: ", speaker.id, speaker.firstName, speaker.lastName, " to ", destFile);
+
                     grunt.file.write(destFile, html);
 
                 });
@@ -353,6 +363,8 @@ module.exports.renderEvent = function(grunt, files, output, event) {
             } 
 
             var allPresentations = function() {
+
+                console.log("Rendering full schedule");
 
                 // /dv13-schedule.html
 
@@ -362,7 +374,8 @@ module.exports.renderEvent = function(grunt, files, output, event) {
                     isSchedule: true,                
                     eventDetails: prepared.eventDetails,
                     tracks: prepared.tracks,
-                    fullSchedule: prepared.fullSchedule
+                    fullSchedule: prepared.fullSchedule,
+                    event: event
                 };
 
                 var html = template(data);
