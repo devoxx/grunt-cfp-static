@@ -44,8 +44,8 @@ module.exports = function(grunt) {
       grunt.file.write(destFile, html);
     }
 
-    renderStatic("agreement.html", { isAgreement: true } );
-    renderStatic("thankyou.html", { isThankyou: true } );
+    renderStatic("agreement.html", { isAgreement: true, event: _.last(this.data.events) } );
+    renderStatic("thankyou.html", { isThankyou: true, event: _.last(this.data.events) } );
 
     _.each(this.data.events, function(event){
       var eventPromise = function() {
